@@ -48,10 +48,47 @@
 - include_tasks: checkmkagent-disable-xinetd.yml
   when: not checkmkagent_service_xinetd|default(false)
 
-- name: Download and install check-mk-agent package
+- name: Check whether check-mk-agent is installed
+  command: "dpkg-query -l check-mk-agent"
+  register: "checkmkagent_installed"
+  changed_when: false
+  check_mode: false
+  ignore_errors: true
+
+- name: Get check-mk-agent version
+  # NOTE we we need to strip of trailing "-1" of the package version, as this is defined
+  # in the Debian package but not with our installed_checkmkagent_version
+  ansible.builtin.shell:
+    cmd: "dpkg-query --showformat='${Version}\n' -W check-mk-agent | sed 's/-1//'"
+  register: "checkmkagent_version_installed"
+  when: "checkmkagent_installed is defined"
+  changed_when: false
+  check_mode: false
+
+- name: Determine if this is an initial dry-run
+  ansible.builtin.set_fact:
+    initial_dry_run: "{{ ansible_check_mode and not checkmkagent_installed is defined }}"
+
+- name: Put value of installed version into an Ansible fact"
+  ansible.builtin.set_fact:
+    installed_checkmkagent_version: "{{ checkmkagent_version_installed.stdout }}"
+  when: "checkmkagent_installed is defined"
+
+- name: Output version strings of installed and to be installed check-mk-agent
+  ansible.builtin.debug:
+    msg: "Installed version: '{{ installed_checkmkagent_version }}', version to be installed: '{{ checkmkagent_version }}'"
+  when: "installed_checkmkagent_version is defined"
+
+- name: Check if both version strings are equal
+  register: "is_checkmkagent_version_equal"
+  ansible.builtin.command:
+    cmd: "dpkg --compare-versions {{ installed_checkmkagent_version}} eq {{ installed_checkmkagent_version }}"
+  when: "checkmkagent_installed is defined"
+
+- name: Continue with downloading + installing check-mk-agent if check-mk-agent is not already installed or versions are not equal
   apt:
     deb: "{{ checkmkagent_host_url }}/check_mk/agents/check-mk-agent_{{ checkmkagent_version }}-1_all.deb"
-  when: checkmkagent_host_url is defined
+  when: (not checkmkagent_installed is defined or not is_checkmkagent_version_equal) and checkmkagent_host_url is defined
 
 - name: Deploy local check-mk-agent package
   include_tasks: deploy-checkmkagent.yml
