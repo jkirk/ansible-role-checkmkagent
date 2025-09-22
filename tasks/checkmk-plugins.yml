@@ -107,14 +107,14 @@
     group: root
     mode: 0644
   when:
-    - checkmkagent_plugins_enabled | intersect( ['mk_ceph'] )
+    - checkmkagent_plugins_enabled | intersect( ['mk_ceph.py', 'mk_ceph'] )
 
 - name: Remove checkmk agent plugin mk_ceph config file
   file:
     path: '/etc/check_mk/ceph.cfg'
     state: absent
   when:
-    - not checkmkagent_plugins_enabled | intersect( ['mk_ceph'] )
+    - not checkmkagent_plugins_enabled | intersect( ['mk_ceph.py', 'mk_ceph'] )
 
 ### checkmk agent plugin: mk_logwatch
 
