@@ -53,7 +53,7 @@
   register: "checkmkagent_installed"
   changed_when: false
   check_mode: false
-  ignore_errors: true
+  failed_when: false
 
 - name: Get check-mk-agent version
   # NOTE we we need to strip of trailing "-1" of the package version, as this is defined
@@ -61,7 +61,7 @@
   ansible.builtin.shell:
     cmd: "dpkg-query --showformat='${Version}\n' -W check-mk-agent | sed 's/-1//'"
   register: "checkmkagent_version_installed"
-  when: "checkmkagent_installed is defined"
+  when: "checkmkagent_installed.rc == 0"
   changed_when: false
   check_mode: false
 
@@ -72,23 +72,24 @@
 - name: Put value of installed version into an Ansible fact"
   ansible.builtin.set_fact:
     installed_checkmkagent_version: "{{ checkmkagent_version_installed.stdout }}"
-  when: "checkmkagent_installed is defined"
+  when: "checkmkagent_installed.rc == 0"
 
 - name: Output version strings of installed and to be installed check-mk-agent
   ansible.builtin.debug:
     msg: "Installed version: '{{ installed_checkmkagent_version }}', version to be installed: '{{ checkmkagent_version }}'"
-  when: "installed_checkmkagent_version is defined"
+  when: checkmkagent_version is defined and installed_checkmkagent_version is defined
 
 - name: Check if both version strings are equal
   register: "is_checkmkagent_version_equal"
   ansible.builtin.command:
-    cmd: "dpkg --compare-versions {{ installed_checkmkagent_version}} eq {{ installed_checkmkagent_version }}"
-  when: "checkmkagent_installed is defined"
+    cmd: "dpkg --compare-versions {{ installed_checkmkagent_version}} eq {{ checkmkagent_version }}"
+  changed_when: false
+  when: checkmkagent_installed.rc == 0 and installed_checkmkagent_version is defined
 
 - name: Continue with downloading + installing check-mk-agent if check-mk-agent is not already installed or versions are not equal
   apt:
     deb: "{{ checkmkagent_host_url }}/check_mk/agents/check-mk-agent_{{ checkmkagent_version }}-1_all.deb"
-  when: (not checkmkagent_installed is defined or not is_checkmkagent_version_equal) and checkmkagent_host_url is defined
+  when: (not checkmkagent_installed.rc == 0 or not is_checkmkagent_version_equal) and checkmkagent_host_url is defined
 
 - name: Deploy local check-mk-agent package
   include_tasks: deploy-checkmkagent.yml
