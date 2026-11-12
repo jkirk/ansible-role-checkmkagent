@@ -83,13 +83,16 @@
   register: "is_checkmkagent_version_equal"
   ansible.builtin.command:
     cmd: "dpkg --compare-versions {{ installed_checkmkagent_version}} eq {{ checkmkagent_version }}"
+  # rc 0 = equal, rc 1 = not equal; anything else is a real error
+  failed_when: is_checkmkagent_version_equal.rc not in [0, 1]
   changed_when: false
+  check_mode: false
   when: checkmkagent_installed.rc == 0 and installed_checkmkagent_version is defined
 
 - name: Continue with downloading + installing check-mk-agent if check-mk-agent is not already installed or versions are not equal
   apt:
     deb: "{{ checkmkagent_host_url }}/check_mk/agents/check-mk-agent_{{ checkmkagent_version }}-1_all.deb"
-  when: (not checkmkagent_installed.rc == 0 or not is_checkmkagent_version_equal) and checkmkagent_host_url is defined
+  when: (checkmkagent_installed.rc != 0 or is_checkmkagent_version_equal.rc != 0) and checkmkagent_host_url is defined
 
 - name: Deploy local check-mk-agent package
   include_tasks: deploy-checkmkagent.yml
