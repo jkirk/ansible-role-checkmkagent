@@ -45,6 +45,12 @@ checkmkagent_plugins_path: "/usr/lib/check_mk_agent/plugins"
 # (Don't override this variable!)
 checkmkagent_plugins_available: [ 'mk_ceph.py', 'mk_ceph', 'mk_logwatch.py', 'mk_mysql', 'smart' ]
 
+# Since checkmk 2.5 some agent plugins belong to a plugin family and are
+# downloaded from `cmk/plugins/<family>/agents/` on the checkmk server.
+# Maps plugin name -> plugin family.
+checkmkagent_plugin_families:
+  mk_ceph.py: 'ceph'
+
 # Some plugins should only be deployed if explicitly requested.
 # The checkmk agent plugin mk_apt will be deployed always (on Debian hosts).
 checkmkagent_plugins_enabled: [ '' ]
