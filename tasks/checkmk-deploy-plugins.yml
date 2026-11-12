@@ -1,8 +1,24 @@
 ---
+# Since checkmk 2.5 some agent plugins (e.g. mk_ceph.py) are part of a plugin
+# family (cmk/plugins/<family>/agents/) and are no longer served below
+# check_mk/agents/plugins/, but through the download_agent_plugin.py page.
+- name: Set download URL for checkmk agent plugin {{ item }}
+  set_fact:
+    checkmkagent_plugin_url: >-
+      {%- if item in checkmkagent_plugin_families
+            and checkmkagent_version is version('2.5.0', '>=', version_type='loose') -%}
+      {{ checkmkagent_host_url }}/check_mk/download_agent_plugin.py?path=
+      {{- ('/omd/sites/' ~ (checkmkagent_site | default(checkmkagent_host_url | urlsplit('path') | basename, true))
+          ~ '/lib/python3/cmk/plugins/' ~ checkmkagent_plugin_families[item] ~ '/agents/' ~ item) | urlencode }}
+      {%- else -%}
+      {{ checkmkagent_host_url }}/check_mk/agents/plugins/{{ item }}
+      {%- endif -%}
+
 - name: Download + deploy checkmk agent plugin {{ item }}
   get_url:
-    url: "{{ checkmkagent_host_url }}/check_mk/agents/plugins/{{ item }}"
-    dest: '{{ checkmkagent_plugins_path }}'
+    url: "{{ checkmkagent_plugin_url }}"
+    dest: '{{ checkmkagent_plugins_path }}/{{ item }}'
+    force: yes
     owner: root
     group: root
     mode: 0755
@@ -14,7 +30,7 @@
 - name: Download checkmk agent plugin {{ item }} (Workaround for bug ansible/ansible#65687)
   become: false
   get_url:
-    url: "{{ checkmkagent_host_url }}/check_mk/agents/plugins/{{ item }}"
+    url: "{{ checkmkagent_plugin_url }}"
     dest: '/tmp/{{ item }}'
     force: yes
   delegate_to: localhost
